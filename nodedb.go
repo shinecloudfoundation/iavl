@@ -363,6 +363,11 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 	return ndb.saveRoot([]byte{}, version)
 }
 
+// ForceSaveEmptyRoot creates an entry on disk for an empty root at any version
+func (ndb *nodeDB) ForceSaveEmptyRoot(version int64) error {
+	return ndb.forceSaveRoot([]byte{}, version)
+}
+
 func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -370,6 +375,17 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	if version != ndb.getLatestVersion()+1 {
 		return fmt.Errorf("must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
+
+	key := ndb.rootKey(version)
+	ndb.batch.Set(key, hash)
+	ndb.updateLatestVersion(version)
+
+	return nil
+}
+
+func (ndb *nodeDB) forceSaveRoot(hash []byte, version int64) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 
 	key := ndb.rootKey(version)
 	ndb.batch.Set(key, hash)
