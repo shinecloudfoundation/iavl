@@ -562,3 +562,27 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 		tree.orphans[string(node.hash)] = node.version
 	}
 }
+
+// SetVersion set current version of the tree. Only used in upgrade
+func (tree *MutableTree) SetVersion(version int64) error {
+	if tree.root != nil {
+		return fmt.Errorf("can't set tree version when tree root is not nil")
+	}
+
+	tree.ndb.SaveOrphans(version, tree.orphans)
+	err := tree.ndb.ForceSaveEmptyRoot(version)
+	if err != nil {
+		return err
+	}
+
+	tree.ndb.Commit()
+	tree.version = version
+	tree.versions[version] = true
+
+	// Set new working tree.
+	tree.ImmutableTree = tree.ImmutableTree.clone()
+	tree.lastSaved = tree.ImmutableTree.clone()
+	tree.orphans = map[string]int64{}
+
+	return nil
+}
